@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
-import java.util.concurrent.ForkJoinPool;
 
 final class PooledScheduler {
 
@@ -114,48 +113,18 @@ final class PooledScheduler {
         System.out.println("" + messageContextPair.operation);
     }
 
-    private static void taskScheduleParallelism(int nThreads, MessageContextPair msg, PooledScheduler sch){
-
-        ForkJoinPool forkJoinPool = null;
-        try {
-            forkJoinPool = new ForkJoinPool(nThreads);
-            forkJoinPool.submit(() -> sch.schedule(msg)).get();
-            
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-        } finally {
-            if (forkJoinPool != null) {
-                forkJoinPool.shutdown(); 
-            }
-        }
-
-    }
-
-    /*private static void taskCreationParallelism(int nThreads, MessageContextPair msg, PooledScheduler sch){
-
-        ForkJoinPool forkJoinPool = null;
-        try {
-            forkJoinPool = new ForkJoinPool(nThreads);
-            forkJoinPool.submit(() -> sch.schedule(msg)).get();
-
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-        } finally {
-            if (forkJoinPool != null) {
-                forkJoinPool.shutdown();
-            }
-        }
-
-    }*/
 
     public static void main(String [] args){
         int i = 0;
         ConflictDefinition cf = new ConflictDefinition();
         PooledScheduler sch = new PooledScheduler(2, cf);
         sch.setExecutor(PooledScheduler::executeRequest);
-        while(true) {
-            taskScheduleParallelism(10, new MessageContextPair(i++), sch);
-        }
+        ForkJoinPool fjk = null;
+        ConcurrentScheduler cs = new ConcurrentScheduler(10, fjk);
+
+        cs.concurrentScheduling(cs.getnThreads(), cs.getForkJoinPool(), );
+
+
 
     }
 }
