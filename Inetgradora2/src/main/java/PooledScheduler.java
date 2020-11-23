@@ -8,13 +8,20 @@ import parallelism.late.ConflictDefinition;
 import parallelism.scheduler.Scheduler;
 */
 
+
+import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.runner.RunnerException;
+import java.util.*;
+
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
-final class PooledScheduler {
+
+public class PooledScheduler {
 
     private static final int MAX_SIZE = 150;
 
@@ -37,8 +44,8 @@ final class PooledScheduler {
 
     private Consumer<MessageContextPair> executor;
 
-    PooledScheduler(int nThreads,
-                    ConflictDefinition conflict) {
+    public PooledScheduler(int nThreads,
+                           ConflictDefinition conflict) {
         this.nThreads = nThreads;
         this.conflict = conflict;
         this.space = new Semaphore(MAX_SIZE);
@@ -55,12 +62,12 @@ final class PooledScheduler {
         return nThreads;
     }
 
-    public void schedule(MessageContextPair request) {
+    public void schedule(MessageContextPair request) { 
         try {
             space.acquire();
             doSchedule(request);
         } catch (InterruptedException e) {
-            // Ignored.
+            System.out.println(e);
         }
     }
 
@@ -68,22 +75,21 @@ final class PooledScheduler {
         Task newTask = new Task(request);
         submit(newTask, addTask(newTask));
     }
-
-    private List<CompletableFuture<Void>> addTask(Task newTask) {
+    private synchronized List<CompletableFuture<Void>> addTask(Task newTask) {
         List<CompletableFuture<Void>> dependencies = new LinkedList<>();
         ListIterator<Task> iterator = scheduled.listIterator();
 
         while (iterator.hasNext()) {
             Task task = iterator.next();
             if (task.future.isDone()) {
-                iterator.remove();
+                iterator.remove();//SC
                 continue;
             }
             if (conflict.isDependent(task.request, newTask.request)) {
                 dependencies.add(task.future);
             }
         }
-        scheduled.add(newTask);
+        scheduled.add(newTask);  //SC
         return dependencies;
     }
 
@@ -104,27 +110,49 @@ final class PooledScheduler {
 
     private void execute(Task task) {
         executor.accept(task.request);
-        System.out.println(task.toString());
+        //System.out.println(task.toString());
         space.release();
         task.future.complete(null);
-    }
 
+    }
     private static void executeRequest(MessageContextPair messageContextPair){
-        System.out.println("" + messageContextPair.operation);
+        String delta = "    ";
+        for (int i=1; i<messageContextPair.clId; i++){ // gera um delta para cada id de cliente
+            delta = delta + "                ";
+        }
+        System.out.println(delta + messageContextPair.operation);
     }
 
-
-    public static void main(String [] args){
-        int i = 0;
+    @BenchmarkMode(Mode.All)
+    @OutputTimeUnit(TimeUnit.MILLISECONDS)
+    public static void main(String [] args) throws IOException, RunnerException {
+        // parametros
+        int nt = 6;  // numero de threads no pool
+        int nc = 10;  // numero de threads clientes
+        int nr = 100; // numero de requisicoes que cada cliente faz
         ConflictDefinition cf = new ConflictDefinition();
-        PooledScheduler sch = new PooledScheduler(2, cf);
+
+        // lado servidor
+        PooledScheduler sch = new PooledScheduler(nt, cf);
         sch.setExecutor(PooledScheduler::executeRequest);
-        ForkJoinPool fjk = null;
-        ConcurrentScheduler cs = new ConcurrentScheduler(10, fjk);
 
-        cs.concurrentScheduling(cs.getnThreads(), cs.getForkJoinPool(), );
+        // lado cliente
 
+        for (int i=1; i<=nc; i++){
+            new ClientThread(i, sch, nr).start();
+        }
 
-
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 }
+
+//Teste:Fixar um numero de threads no pool(max da maquina(umas 6))
+//executa por determinado tempo e verifica a quantidade de requisicoes tratadas 
+//apos a thread main dormir para cada configuracao
+
+//mesmo nao tendo uma opcao de funcionalidade de lista concorrente de java, existe na literatura implementacoes que abordam
+//solucoes para isso

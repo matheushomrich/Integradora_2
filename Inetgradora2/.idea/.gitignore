@@ -2,7 +2,9 @@
 /shelf/
 /workspace.xml
 # Datasource local storage ignored files
-/../../../../../../:\Users\matid\Desktop\PooledScheduler\.idea/dataSources/
+/../../../../../../../../:\Users\loren\Desktop\Outros\Cursos\teste\.idea/dataSources/
 /dataSources.local.xml
+# Zeppelin ignored files
+/ZeppelinRemoteNotebooks/
 # Editor-based HTTP Client requests
 /httpRequests/
