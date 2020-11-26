@@ -123,8 +123,7 @@ public class PooledScheduler {
         System.out.println(delta + messageContextPair.operation);
     }
 
-    @BenchmarkMode(Mode.All)
-    @OutputTimeUnit(TimeUnit.MILLISECONDS)
+
     public static void main(String [] args) throws IOException, RunnerException {
         // parametros
         int nt = 6;  // numero de threads no pool
